@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -12,7 +12,9 @@ var lineDelimiter = flag.String("lineDelimiter", "\n", "The end of line delimite
 
 func main() {
 	flag.Parse()
-
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 	bytes, err := os.ReadFile(*inputFile)
 
 	if err != nil {
@@ -24,6 +26,6 @@ func main() {
 	split := strings.Split(contents, *lineDelimiter)
 	split = split[:len(split)-1]
 	for _, line := range split {
-		log.Printf("The line contents are %s", line)
+		logger.Info("", "line", line)
 	}
 }
