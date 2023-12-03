@@ -6,17 +6,33 @@ import (
 
 func TestFinder(t *testing.T) {
 
-	scenarios := map[string][]int{
-		"1sdf7ew2":     {1, 7, 2},
-		"sdf7":         {7},
-		"bpcfzztwo252": {2, 5, 2},
-		// "one":      {1},
+	scenarios := []struct {
+		token              string
+		expected           []int
+		useWordReplacement bool
+	}{
+		{"1a1", []int{1, 1}, false},
+		{"oneight", []int{1, 8}, true},
+		{"1sdf7ew2", []int{1, 7, 2}, false},
+		{"sdf7", []int{7}, false},
+		{"bpcfzztwo252", []int{2, 2, 5, 2}, true},
+		{"one", []int{1}, true},
+		{"eightwo", []int{8, 2}, true},
+		{"dssmtmrkonedbbhdhjbf9hq", []int{1, 9}, true},
+		{"dssmtmrkonedbbhdhjbf9hq", []int{9}, false},
+		{"one41tvgttqnm1791szxcjbg", []int{4, 1, 1, 7, 9, 1}, false},
 	}
 
-	for token, expectedValue := range scenarios {
-		actualValue := finder(token)
+	for _, scenario := range scenarios {
 
-		assertCorrectSlice(t, expectedValue, actualValue)
+		searchItems := numericSearchItems
+
+		if scenario.useWordReplacement {
+			searchItems = append(searchItems, alphaSearchItems...)
+		}
+		actualValue := finder(scenario.token, searchItems)
+
+		assertCorrectSlice(t, scenario.expected, actualValue)
 	}
 
 }
