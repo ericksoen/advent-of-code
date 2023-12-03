@@ -5,12 +5,33 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
 var inputFile = flag.String("inputFile", "input.txt", "Relative path to the input file")
 var lineDelimiter = flag.String("lineDelimiter", "\n", "The end of line delimiter")
+
+var nonNumericRegexp = regexp.MustCompile(`[^0-9]+`)
+
+func finder(line string) []int {
+
+	sanitized := nonNumericRegexp.ReplaceAllString(line, "")
+
+	lineTokens := make([]int, len(sanitized))
+	for indexPos, val := range sanitized {
+		i, err := strconv.Atoi(string(val))
+
+		if err != nil {
+			panic(err)
+		}
+
+		lineTokens[indexPos] = i
+	}
+
+	return lineTokens
+}
 
 func main() {
 	flag.Parse()
@@ -27,32 +48,21 @@ func main() {
 	split = split[:len(split)-1]
 
 	aggregateTotal := 0
-	for _, line := range split {
-		// log.Printf("The line = %s", line)
-		var lineTokens []int
-		for _, char := range line {
+	for i, line := range split {
 
-			i, err := strconv.Atoi(string(char))
-
-			if err != nil {
-				continue
-			}
-
-			lineTokens = append(lineTokens, i)
-		}
+		lineTokens := finder(line)
 
 		firstToken := lineTokens[0]
 		lastToken := lineTokens[len(lineTokens)-1]
 
 		lineTotal, err := strconv.Atoi(fmt.Sprintf("%d%d", firstToken, lastToken))
-		// log.Printf("The line total = %d", lineTotal)
 
 		if err != nil {
 			panic(err)
 		}
 
 		aggregateTotal += lineTotal
-
-		log.Printf("The file totals = %d", aggregateTotal)
+		log.Printf("[Line %d]: Total = %d for token = %s", i, lineTotal, line)
 	}
+	log.Printf("The file totals = %d", aggregateTotal)
 }
