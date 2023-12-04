@@ -14,6 +14,24 @@ var maxGreen = flag.Int("maxGreen", -1, "The max number of greens")
 var maxBlue = flag.Int("maxBlue", -1, "The max number of bluess")
 var maxRed = flag.Int("maxRed", -1, "The max number of reds")
 
+type Game struct {
+	Index int
+	Valid bool
+	ID    int
+	Turns []Turn
+}
+
+type Turn struct {
+	Index int
+	Rolls []Roll
+}
+
+type Roll struct {
+	Index     int
+	Color     string
+	Frequency int
+}
+
 func main() {
 	flag.Parse()
 
@@ -36,7 +54,7 @@ func main() {
 
 	split := strings.Split(contents, *lineDelimiter)
 
-	validGameIDs := make([]int, 0)
+	games := make([]Game, 0)
 
 	for i, line := range split {
 		if len(line) == 0 {
@@ -44,87 +62,95 @@ func main() {
 			continue
 		}
 
-		isValidGame := true
+		gameTokens := strings.Split(line, ":")
 
-		tokens := strings.Split(line, ":")
-
-		if len(tokens) != 2 {
+		if len(gameTokens) != 2 {
 			logger.Warn("Malformed line", "index", i, "line", line)
 		}
 
-		gameID := tokens[0]
-		games := strings.Trim(tokens[1], " ")
+		gameID := gameTokens[0]
 
-		gameTokens := strings.Split(games, ";")
+		numericGameIdTokens := strings.Split(gameID, " ")
 
-		for i, gameToken := range gameTokens {
-			logger.Info("Game details", "gameID", gameID, "gameIndex", i, "gameToken", gameToken)
+		if len(numericGameIdTokens) != 2 {
+			logger.Warn("Invalid Game ID", "line", i, "GameID", numericGameIdTokens)
+			continue
+		}
 
-			rollDetails := strings.Split(gameToken, ",")
+		numericGameID, err := strconv.Atoi(numericGameIdTokens[1])
 
-			for _, rollDetail := range rollDetails {
+		if err != nil {
+			logger.Error("Game ID is not numeric", "lineId", i, "gameId", numericGameIdTokens[1])
+			continue
+		}
 
-				rollDetail = strings.Trim(rollDetail, " ")
-				logger.Info("Roll detail", "detail", rollDetail)
+		game := Game{Index: i, ID: numericGameID, Valid: true, Turns: make([]Turn, 0)}
 
-				rollTokens := strings.Split(rollDetail, " ")
+		gamesRaw := strings.Trim(gameTokens[1], " ")
 
-				if len(rollTokens) != 2 {
-					logger.Warn("Roll tokens", "tokens", rollTokens)
+		turnTokens := strings.Split(gamesRaw, ";")
+
+		for j, turnToken := range turnTokens {
+
+			turns := make([]Turn, 0)
+
+			logger.Info("Turn details", "gameID", gameID, "gameIndex", i, "turnIndex", j, "turnToken", turnToken)
+
+			rollToken := strings.Split(turnToken, ",")
+
+			rolls := make([]Roll, 0)
+			for k, roll := range rollToken {
+
+				roll = strings.Trim(roll, " ")
+				logger.Info("Roll detail", "roll", roll)
+
+				roleDetailTokens := strings.Split(roll, " ")
+
+				if len(roleDetailTokens) != 2 {
+					logger.Warn("Roll tokens", "tokens", roleDetailTokens)
 				}
 
-				frequency, err := strconv.Atoi(rollTokens[0])
+				frequency, err := strconv.Atoi(roleDetailTokens[0])
 
 				if err != nil {
-					logger.Error("Invalid roll frequency", "tokens", rollTokens)
+					logger.Error("Invalid roll frequency", "tokens", roleDetailTokens)
 				}
 
-				color := strings.ToLower(rollTokens[1])
+				color := strings.ToLower(roleDetailTokens[1])
 
+				rolls = append(rolls, Roll{Color: color, Frequency: frequency, Index: k})
 				if color == "blue" && frequency > *maxBlue {
-					isValidGame = false
+					game.Valid = false
 					continue
 				}
 
 				if color == "green" && frequency > *maxGreen {
-					isValidGame = false
+					game.Valid = false
 					continue
 				}
 
 				if color == "red" && frequency > *maxRed {
-					isValidGame = false
+					game.Valid = false
 					continue
 				}
 
 			}
+
+			turns = append(turns, Turn{Index: j, Rolls: rolls})
 		}
 
-		if isValidGame {
-			numericGameIdTokens := strings.Split(gameID, " ")
-
-			if len(numericGameIdTokens) != 2 {
-				logger.Warn("Invalid Game ID", "GameID", numericGameIdTokens)
-				continue
-			}
-
-			numericGameID, err := strconv.Atoi(numericGameIdTokens[1])
-
-			if err != nil {
-				logger.Error("Game ID is not numeric", "gameId", numericGameIdTokens[1])
-				continue
-			}
-
-			validGameIDs = append(validGameIDs, numericGameID)
-
-		}
+		games = append(games, game)
 	}
 
-	logger.Info("Valid Game IDs", "GameID", validGameIDs)
+	logger.Info("All Games", "GameID", games)
 
 	sum := 0
 
-	for _, validGameId := range validGameIDs {
-		sum += validGameId
+	for _, game := range games {
+
+		if game.Valid {
+			sum += game.ID
+		}
 	}
 
 	logger.Info("", "total", sum)
