@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -15,28 +16,56 @@ var maxBlue = flag.Int("maxBlue", -1, "The max number of bluess")
 var maxRed = flag.Int("maxRed", -1, "The max number of reds")
 
 type Game struct {
-	Index int
-	Valid bool
-	ID    int
-	Turns []Turn
+	Index    int
+	Valid    bool
+	ID       int
+	Turns    []Turn
+	MaxGreen int
+	MaxBlue  int
+	MaxRed   int
+}
+
+func NewGame(index, id, maxGreen, maxBlue, maxRed int) *Game {
+
+	return &Game{
+		Index:    index,
+		ID:       id,
+		Valid:    true,
+		MaxGreen: maxGreen,
+		MaxBlue:  maxBlue,
+		MaxRed:   maxRed,
+		Turns:    make([]Turn, 0),
+	}
+}
+
+func (g *Game) AddTurn(t Turn) {
+	g.Turns = append(g.Turns, t)
+
+	if t.Blue > g.MaxBlue {
+		g.Valid = false
+	}
+
+	if t.Green > g.MaxGreen {
+		g.Valid = false
+	}
+
+	if t.Red > g.MaxRed {
+		g.Valid = false
+	}
 }
 
 type Turn struct {
 	Index int
-	Rolls []Roll
-}
-
-type Roll struct {
-	Index     int
-	Color     string
-	Frequency int
+	Blue  int
+	Green int
+	Red   int
 }
 
 func main() {
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelWarn,
 	}))
 
 	if *maxGreen == -1 || *maxBlue == -1 || *maxRed == -1 {
@@ -84,7 +113,7 @@ func main() {
 			continue
 		}
 
-		game := Game{Index: i, ID: numericGameID, Valid: true, Turns: make([]Turn, 0)}
+		game := NewGame(i, numericGameID, *maxGreen, *maxBlue, *maxRed)
 
 		gamesRaw := strings.Trim(gameTokens[1], " ")
 
@@ -92,14 +121,14 @@ func main() {
 
 		for j, turnToken := range turnTokens {
 
-			turns := make([]Turn, 0)
-
 			logger.Info("Turn details", "gameID", gameID, "gameIndex", i, "turnIndex", j, "turnToken", turnToken)
 
 			rollToken := strings.Split(turnToken, ",")
 
-			rolls := make([]Roll, 0)
-			for k, roll := range rollToken {
+			red := 0
+			blue := 0
+			green := 0
+			for _, roll := range rollToken {
 
 				roll = strings.Trim(roll, " ")
 				logger.Info("Roll detail", "roll", roll)
@@ -118,40 +147,35 @@ func main() {
 
 				color := strings.ToLower(roleDetailTokens[1])
 
-				rolls = append(rolls, Roll{Color: color, Frequency: frequency, Index: k})
-				if color == "blue" && frequency > *maxBlue {
-					game.Valid = false
-					continue
+				if color == "blue" {
+					blue = frequency
 				}
 
-				if color == "green" && frequency > *maxGreen {
-					game.Valid = false
-					continue
+				if color == "green" {
+					green = frequency
 				}
 
-				if color == "red" && frequency > *maxRed {
-					game.Valid = false
-					continue
+				if color == "red" {
+					red = frequency
 				}
-
 			}
 
-			turns = append(turns, Turn{Index: j, Rolls: rolls})
+			game.AddTurn(Turn{Index: j, Blue: blue, Red: red, Green: green})
+
+			logger.Info("Turn counter", "Id", game.ID, "turns", len(game.Turns))
 		}
 
-		games = append(games, game)
+		games = append(games, *game)
 	}
-
-	logger.Info("All Games", "GameID", games)
 
 	sum := 0
 
 	for _, game := range games {
-
 		if game.Valid {
+			logger.Warn("Game status", "id", game.ID, "status", game.Valid)
 			sum += game.ID
 		}
 	}
 
-	logger.Info("", "total", sum)
+	fmt.Printf("The total = %d", sum)
 }
