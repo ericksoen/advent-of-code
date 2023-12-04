@@ -14,6 +14,7 @@ var lineDelimiter = flag.String("lineDelimiter", "\n", "The end of line delimite
 var maxGreen = flag.Int("maxGreen", -1, "The max number of greens")
 var maxBlue = flag.Int("maxBlue", -1, "The max number of bluess")
 var maxRed = flag.Int("maxRed", -1, "The max number of reds")
+var mode = flag.String("mode", "valid", "The mode to play in. Either `valid` or `power` are supported")
 
 type Game struct {
 	Index    int
@@ -70,6 +71,10 @@ func main() {
 
 	if *maxGreen == -1 || *maxBlue == -1 || *maxRed == -1 {
 		logger.Error("Invalid inputs", "green", *maxGreen, "blue", *maxBlue, "red", *maxBlue)
+		os.Exit(-1)
+	}
+	if strings.ToLower(*mode) != "valid" && strings.ToLower(*mode) != "power" {
+		logger.Error("Invalid mode inputs. Expected one of `valid` or `power`.", "gotMode", *mode)
 		os.Exit(-1)
 	}
 
@@ -170,12 +175,55 @@ func main() {
 
 	sum := 0
 
-	for _, game := range games {
-		if game.Valid {
-			logger.Warn("Game status", "id", game.ID, "status", game.Valid)
-			sum += game.ID
+	if *mode == "valid" {
+		for _, game := range games {
+			if game.Valid {
+				logger.Info("Game status", "id", game.ID, "status", game.Valid)
+				sum += game.ID
+			}
 		}
+
+		fmt.Printf("The total = %d", sum)
+		os.Exit(0)
 	}
 
-	fmt.Printf("The total = %d", sum)
+	if *mode == "power" {
+
+		lineTotals := make([]int, 0)
+
+		for _, game := range games {
+
+			summary := struct {
+				blue  int
+				red   int
+				green int
+			}{0, 0, 0}
+
+			for _, turn := range game.Turns {
+
+				if turn.Blue > summary.blue {
+					summary.blue = turn.Blue
+				}
+
+				if turn.Green > summary.green {
+					summary.green = turn.Green
+				}
+
+				if turn.Red > summary.red {
+					summary.red = turn.Red
+				}
+			}
+
+			lineTotals = append(lineTotals, summary.blue*summary.green*summary.red)
+		}
+		sum := 0
+		for _, total := range lineTotals {
+			sum += total
+		}
+		fmt.Printf("The total = %d", sum)
+		os.Exit(0)
+	}
+
+	logger.Error("Mode is not implemented")
+	os.Exit(-1)
 }
